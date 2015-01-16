@@ -7,11 +7,12 @@
 #
 # Commands:
 #   hubot uptime <filter> - Returns uptime for sites.
-#   hubot uptime add-check <http://example.com> [as <friendlyname>]- Adds a new uptime check.
+#   hubot uptime check <http://example.com> [as <friendlyname>]- Adds a new uptime check.
 #
 # Author:
 #   patcon@myplanetdigital
 
+UptimeRobot = require 'uptime-robot'
 apiKey = process.env.HUBOT_UPTIMEROBOT_APIKEY
 alertContactId = process.env.HUBOT_UPTIMEROBOT_CONTACT_ID
 
@@ -25,15 +26,14 @@ module.exports = (robot) ->
     )?
   ///i
   robot.respond REGEX, (msg) ->
-    Client = require 'uptime-robot'
-    client = new Client apiKey
+    uptimeRobot = new UptimeRobot apiKey
 
     filter = msg.match[2]
     data = {}
+    statusMap = ['paused', 'not checked yet', 'up', 'seems down', 'down']
 
-    client.getMonitors data, (err, res) ->
-      if err
-        throw err
+    uptimeRobot.getMonitors data, (err, res) ->
+      throw err if err
 
       monitors = res
 
@@ -43,44 +43,50 @@ module.exports = (robot) ->
           .regex(new RegExp filter, 'i')
           .on res
 
-      for monitor, i in monitors
+      monitors.forEach (monitor) ->
         name   = monitor.friendlyname
         url    = monitor.url
         uptime = monitor.alltimeuptimeratio
-        status = switch monitor.status
-          when "0" then "paused"
-          when "1" then "not checked yet"
-          when "2" then "up"
-          when "8" then "seems down"
-          when "9" then "down"
-
+        status = statusMap[monitor.status]
         msg.send "#{status.toUpperCase()} <- #{url} (#{uptime}% uptime)"
 
-  robot.respond /uptime add-check (\S+)( as (.*))?$/i, (msg) ->
+  # available params:
+  #   monitorID monitorURL monitorFriendlyName alertType alertDetails monitorAlertContacts
+  robot.router.get '/hubot/uptimerobot', (req, res) ->
+    statusMap = 1: 'down', 2: 'up'
+
+    name = req.param 'monitorFriendlyName'
+    status = alertTypeMap[req.param 'alertType']
+    detail = req.param 'alertDetails'
+    url = req.param 'monitorURL'
+
+    return unless robot.auth?
+    robot.auth.usersWithRole('admin').forEach (name) ->
+      user = robot.brain.userForName name
+      envelope = room: user.room, user: {type: 'chat'}
+      robot.send envelope, "The #{name} is #{status.toUpperCase()}! #{detail} #{url}"
+
+  robot.respond /uptime check (\S+)( as (.*))?$/i, (msg) ->
     url = require('url').parse(msg.match[1])
     friendlyName = msg.match[3] or url.href
 
     # Check that url format is correct.
     monitorUrl = url.href if url.protocol
-    
+
     # Create monitor
-    msg.http("http://api.uptimerobot.com/newMonitor")
-      .query({
-        apiKey: apiKey
-        monitorFriendlyName: friendlyName
-        monitorURL: monitorUrl
-        monitorType: 1
-        format: "json"
-        noJsonCallback: 1
-        monitorAlertContacts: [
-          alertContactId
-        ]
-      })
-      .get() (err, res, body) ->
-        response = JSON.parse(body)
+    msg.http("http://api.uptimerobot.com/newMonitor").query(
+      apiKey: apiKey
+      monitorFriendlyName: friendlyName
+      monitorURL: monitorUrl
+      monitorType: 1
+      format: "json"
+      noJsonCallback: 1
+      monitorAlertContacts: [alertContactId]
+    ).get() (err, res, body) ->
+      response = JSON.parse body
 
-        if response.stat is "ok"
-          msg.send "done"
+      if response.stat is "ok"
+        msg.send "done"
 
-        if response.stat is "fail"
-          msg.send "#{response.message}"
+      if response.stat is "fail"
+        msg.send "#{response.message}"
