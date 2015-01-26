@@ -56,7 +56,7 @@ module.exports = (robot) ->
     statusMap = 1: 'down', 2: 'up'
 
     name = req.param 'monitorFriendlyName'
-    status = alertTypeMap[req.param 'alertType']
+    status = statusMap[req.param 'alertType']
     detail = req.param 'alertDetails'
     url = req.param 'monitorURL'
 
