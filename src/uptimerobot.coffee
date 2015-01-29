@@ -30,7 +30,13 @@ module.exports = (robot) ->
 
     filter = msg.match[2]
     data = {}
-    statusMap = ['paused', 'not checked yet', 'up', 'seems down', 'down']
+    statusMap = {
+      0: 'paused'
+      1: 'not checked yet'
+      2: 'up'
+      8: 'seems down'
+      9: 'down'
+    }
 
     uptimeRobot.getMonitors data, (err, res) ->
       throw err if err
