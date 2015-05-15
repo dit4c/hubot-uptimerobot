@@ -70,7 +70,7 @@ module.exports = (robot) ->
     robot.auth.usersWithRole('admin').forEach (username) ->
       user = robot.brain.userForName username
       envelope = room: user.room, user: {type: 'chat'}
-      robot.send envelope, "The #{name} is #{status.toUpperCase()}! #{detail} #{url}"
+      robot.send envelope, "#{name} (#{url}) is #{status.toUpperCase()}: #{detail}"
 
   robot.respond /uptime check (\S+)( as (.*))?$/i, (msg) ->
     url = require('url').parse(msg.match[1])
