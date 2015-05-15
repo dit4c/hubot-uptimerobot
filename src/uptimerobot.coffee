@@ -67,8 +67,8 @@ module.exports = (robot) ->
     url = req.param 'monitorURL'
 
     return unless robot.auth?
-    robot.auth.usersWithRole('admin').forEach (name) ->
-      user = robot.brain.userForName name
+    robot.auth.usersWithRole('admin').forEach (username) ->
+      user = robot.brain.userForName username
       envelope = room: user.room, user: {type: 'chat'}
       robot.send envelope, "The #{name} is #{status.toUpperCase()}! #{detail} #{url}"
 
